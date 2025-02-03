@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <title>Ordmatchningsspel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: #1e1e2f;
+      color: #f0f0f0;
+      text-align: center;
+      padding: 20px;
+      margin-bottom: 100px;
+    }
+    button, input {
+      margin: 5px;
+      padding: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      position: relative;
+    }
+    button {
+      background-color: #4a90e2;
+      color: #fff;
+    }
+    button:hover {
+      background-color: #357ABD;
+    }
+    .correct {
+      background-color: #5cb85c !important;
+    }
+    .wrong {
+      background-color: #d9534f !important;
+    }
+    textarea {
+      width: 500px;
+      height: 200px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      font-size: 16px;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    h2 {
+      margin: 20px 0;
+    }
+    progress {
+      width: 80%;
+      height: 20px;
+      margin: 20px auto;
+      display: block;
+    }
+    @keyframes shake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      20% { transform: translate(-2px, -2px) rotate(-1deg); }
+      40% { transform: translate(-1px, 2px) rotate(1deg); }
+      60% { transform: translate(2px, 1px) rotate(0deg); }
+      80% { transform: translate(1px, -1px) rotate(1deg); }
+      100% { transform: translate(1px, 1px) rotate(0deg); }
+    }
+    .shake {
+      animation: shake 0.3s;
+    }
+    #buttonContainer {
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    #buttonContainer button {
+      background-color: #f39c12;
+    }
+  </style>
+</head>
+<body>
+  <div id="inputSection">
+    <h2>Klistra in din ordlista</h2>
+    <textarea id="inputData">rolig - skojig, kul eller underhållande
+lågmäld tystlåten</textarea>
+    <label>
+      Repetitioner Level 1:
+      <input type="number" id="level1Input" value="3" min="1">
+    </label>
+    <label>
+      Repetitioner Level 2:
+      <input type="number" id="level2Input" value="3" min="1">
+    </label>
+    <br>
+    <button id="loadBtn">Ladda lista</button>
+  </div>
+
+  <h2 id="definition"></h2>
+  <progress id="progressBar" value="0" max="100"></progress>
+  <div id="words"></div>
+
+  <div id="buttonContainer" style="display:none;">
+    <button id="restartSameBtn">Starta om (samma lista)</button>
+    <button id="newListBtn">Ny lista</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+  <script>
+    let data = [];
+    let definitions = [];
+    let current = 0;
+    let gameLevel = 1;
+    let level1Rounds = 0;
+    let level2Rounds = 0;
+    let level1Reps = 3;
+    let level2Reps = 3;
+    let totalSteps = 0;
+
+    const loadBtn = document.getElementById("loadBtn");
+    const restartSameBtn = document.getElementById("restartSameBtn");
+    const newListBtn = document.getElementById("newListBtn");
+    const buttonContainer = document.getElementById("buttonContainer");
+    const progressBar = document.getElementById("progressBar");
+    const level1Input = document.getElementById("level1Input");
+    const level2Input = document.getElementById("level2Input");
+
+    loadBtn.onclick = () => {
+      parseData(document.getElementById("inputData").value);
+      // If input is empty, default to 1; otherwise use the provided number (if less than 1, default to 1)
+      level1Reps = (level1Input.value === "" ? 1 : (parseInt(level1Input.value) >= 1 ? parseInt(level1Input.value) : 1));
+      level2Reps = (level2Input.value === "" ? 1 : (parseInt(level2Input.value) >= 1 ? parseInt(level2Input.value) : 1));
+      totalSteps = (level1Reps + level2Reps) * data.length;
+      progressBar.max = totalSteps;
+      startGame();
+      document.getElementById("inputSection").style.display = "none";
+      buttonContainer.style.display = "block";
+    };
+
+    restartSameBtn.onclick = startGame;
+    newListBtn.onclick = resetGame;
+
+    function startGame() {
+      gameLevel = 1;
+      level1Rounds = 0;
+      level2Rounds = 0;
+      current = 0;
+      updateProgressBar();
+      startLevel1();
+    }
+
+    function resetGame() {
+      document.getElementById("inputSection").style.display = "block";
+      document.getElementById("definition").textContent = "";
+      document.getElementById("words").innerHTML = "";
+      progressBar.value = 0;
+      buttonContainer.style.display = "none";
+    }
+
+    function parseData(text) {
+      data = [];
+      const lines = text.split('\n');
+      const regex = /^(\S+)\s*(?:-\s*)?(.*)$/;
+      lines.forEach(line => {
+        if (line.trim() === "") return;
+        const match = line.match(regex);
+        if (match) {
+          data.push({ word: match[1], def: match[2] });
+        }
+      });
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    function triggerFirework() {
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    }
+
+    function triggerShake(el) {
+      el.classList.add("shake");
+      setTimeout(() => el.classList.remove("shake"), 300);
+    }
+
+    function updateProgressBar() {
+      let completedSteps = 0;
+      if (gameLevel === 1) {
+        completedSteps = (level1Rounds * data.length) + current;
+      } else if (gameLevel === 2) {
+        completedSteps = (level1Reps * data.length) + (level2Rounds * data.length) + current;
+      }
+      progressBar.value = completedSteps;
+    }
+
+    // Level 1: Clickable buttons
+    function startLevel1() {
+      definitions = [...data];
+      shuffle(definitions);
+      current = 0;
+      showDefinitionLevel1();
+    }
+
+    function showDefinitionLevel1() {
+      if (current >= definitions.length) {
+        level1Rounds++;
+        if (level1Rounds < level1Reps) {
+          startLevel1();
+        } else {
+          gameLevel = 2;
+          level2Rounds = 0;
+          startLevel2();
+        }
+        updateProgressBar();
+        return;
+      }
+      document.getElementById("definition").textContent = definitions[current].def;
+      const wordsDiv = document.getElementById("words");
+      wordsDiv.innerHTML = "";
+      data.forEach(item => {
+        const btn = document.createElement("button");
+        btn.textContent = item.word;
+        btn.onclick = () => {
+          if (item.word === definitions[current].word) {
+            btn.classList.add("correct");
+            triggerFirework();
+            current++;
+            updateProgressBar();
+            setTimeout(showDefinitionLevel1, 1000);
+          } else {
+            btn.classList.add("wrong");
+            triggerShake(btn);
+          }
+        };
+        wordsDiv.appendChild(btn);
+      });
+    }
+
+    // Level 2: Text input
+    function startLevel2() {
+      definitions = [...data];
+      shuffle(definitions);
+      current = 0;
+      showDefinitionLevel2();
+    }
+
+    function showDefinitionLevel2() {
+      if (current >= definitions.length) {
+        level2Rounds++;
+        if (level2Rounds < level2Reps) {
+          startLevel2();
+        } else {
+          document.getElementById("definition").textContent = "Klart!";
+          document.getElementById("words").innerHTML = "";
+        }
+        updateProgressBar();
+        return;
+      }
+      document.getElementById("definition").textContent = definitions[current].def;
+      const wordsDiv = document.getElementById("words");
+      wordsDiv.innerHTML = "";
+      
+      const input = document.createElement("input");
+      input.type = "text";
+      input.id = "answerInput";
+      // No placeholder attribute
+      wordsDiv.appendChild(input);
+      
+      const checkBtn = document.createElement("button");
+      checkBtn.textContent = "Kolla";
+      checkBtn.onclick = checkAnswerLevel2;
+      wordsDiv.appendChild(checkBtn);
+      
+      input.focus();
+      input.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+          checkAnswerLevel2();
+        }
+      });
+    }
+
+    function checkAnswerLevel2() {
+      const input = document.getElementById("answerInput");
+      const answer = input.value.trim();
+      if (answer.toLowerCase() === definitions[current].word.toLowerCase()) {
+        input.classList.add("correct");
+        triggerFirework();
+        current++;
+        updateProgressBar();
+        setTimeout(showDefinitionLevel2, 1000);
+      } else {
+        input.classList.add("wrong");
+        triggerShake(input);
+      }
+    }
+  </script>
+</body>
+</html>
+
