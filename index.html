@@ -87,7 +87,7 @@ be_part_of - vara en del av
 once - en gång 
 twice - två gånger 
 everything - allt 
-the_main_thing - huvudsaken 
+the main thing - huvudsaken 
 voice - röst 
 pretty - ganska  
 wing - sida 
@@ -171,7 +171,7 @@ encyclopedia - uppslagsverk
     function parseData(text) {
       data = [];
       const lines = text.split('\n');
-      const regex = /^(\S+)\s*(?:-\s*)?(.*)$/;
+      const regex = /^(.+?)\s*\-\s*(.*)$/;
       lines.forEach(line => {
         if (line.trim() === "") return;
         const match = line.match(regex);
